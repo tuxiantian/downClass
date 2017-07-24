@@ -1,12 +1,6 @@
 package com.smz.core;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FilenameFilter;
-import java.io.IOException;
+import java.io.*;
 import java.nio.channels.FileChannel;
 import java.nio.file.Paths;
 import java.util.Properties;
@@ -15,6 +9,7 @@ public class GetClassFile
 {
 	private static String PROJECT_CLASS_PATH = "";
 	private static String OUT_PUT_DIR = "";
+	private static String DEVELOP_TOOL= "";
 
 	static
 	{
@@ -32,13 +27,13 @@ public class GetClassFile
 			if (!OUT_PUT_DIR.endsWith("/")) {
 				OUT_PUT_DIR += "/";
 			}
+			DEVELOP_TOOL=p.getProperty("DEVELOP_TOOL");
 		}
 		catch (IOException e)
 		{
 			e.printStackTrace();
 		}
 	}
-
 	public static void main(String[] args)
 	{
 		try
@@ -48,10 +43,14 @@ public class GetClassFile
 				deleteDir(outFile);
 			}
 			BufferedReader br = new BufferedReader(new FileReader("config/file.txt"));
-			String line = null;
+			String line;
 			while ((line = br.readLine()) != null) {
 				if ((line != null) && (line.trim().length() > 0)) {
-					process(line);
+					if ("eclipse".equals(DEVELOP_TOOL)) {
+						process(line);
+					}else {
+						process_idea(line);
+					}
 				}
 			}
 		}
@@ -64,59 +63,78 @@ public class GetClassFile
 	private static void process(String fileName)
 			throws Exception
 	{
-		if (fileName.indexOf(".java") != -1)
-		{
-			String formatFileName="";
-			if (fileName.indexOf("src/") != -1) {
-				formatFileName = fileName.substring(fileName.indexOf("src/") + 4);
-			}
-			if (fileName.indexOf("src\\") != -1) {
-				formatFileName = fileName.substring(fileName.indexOf("src\\") + 5);
-			}
-			formatFileName=formatFileName.replaceAll("\\\\", "/");
-			/**
-			 * 处理内部类和匿名类
-			 */
-			final String tempFileName=formatFileName.substring(formatFileName.lastIndexOf("/")+1, formatFileName.lastIndexOf(".java"));
-			
-			String directryPath=formatFileName.substring(0, formatFileName.lastIndexOf("/"));
-			File directory=Paths.get(PROJECT_CLASS_PATH,directryPath).toFile();
-			
-			File[] listFiles = directory.listFiles(new FilenameFilter() {
-				@Override
-				public boolean accept(File dir, String name) {
-					if (name.equals(tempFileName+".class")||name.startsWith(tempFileName+"$")) {
-						return true;
-					}
-					return false;
-				}
-			});
-			if (listFiles==null||listFiles.length==0) {
-				System.out.println("文件名《" + fileName + "》不存在！");
-			}else {
-				for (File sourceFile : listFiles) {
-					String outPutFileName =Paths.get(OUT_PUT_DIR,directryPath,sourceFile.getName()).toString();
-					outPutFileName = outPutFileName.replaceAll("\\\\", "/");
-					String outPutDir = outPutFileName.substring(0, 
-							outPutFileName.lastIndexOf("/"));
-					File outDir = new File(outPutDir);
-					if (!outDir.exists()) {
-						outDir.mkdirs();
-					}
-					File outFile = new File(outPutFileName);
-					fileChannelCopy(sourceFile, outFile);
-					System.out.println("处理文件<" + sourceFile.getAbsolutePath() + ">成功！");
-				}
-			}
+        String formatFileName="";
+        if (fileName.indexOf("src/") != -1) {
+            formatFileName = fileName.substring(fileName.indexOf("src/") + 4);
+        }
+        if (fileName.indexOf("src\\") != -1) {
+            formatFileName = fileName.substring(fileName.indexOf("src\\") + 5);
+        }
+        formatFileName=formatFileName.replaceAll("\\\\", "/");
+        /**
+         * 处理内部类和匿名类
+         */
+        final String tempFileName=formatFileName.substring(formatFileName.lastIndexOf("/")+1, formatFileName.lastIndexOf(".java"));
 
-		}
-		else
-		{
-			System.out.println("文件名必须是java类型fileName=" + fileName);
-		}
+        String directoryPath=formatFileName.substring(0, formatFileName.lastIndexOf("/"));
+        File directory=Paths.get(PROJECT_CLASS_PATH,directoryPath).toFile();
+
+        File[] listFiles = directory.listFiles((dir, name) -> {
+            if (name.equals(tempFileName+".class")||name.startsWith(tempFileName+"$")||name.endsWith(".xml")) {
+                return true;
+            }
+            return false;
+        });
+
+        copy(fileName, directoryPath, listFiles);
+
 	}
+	private static void process_idea(String fileName)
+			throws Exception
+	{
+		String formatFileName= fileName.replaceAll("\\\\", "/");
+        String directoryPath = null;
+        if (formatFileName.indexOf("java/")!=-1){
+        	directoryPath=formatFileName.substring(formatFileName.indexOf("java/")+"java/".length(), formatFileName.lastIndexOf("/"));
+		}
 
-	public static void fileChannelCopy(File s, File t)
+        /**
+		 * 处理内部类和匿名类
+		 */
+		final String tempFileName=formatFileName.substring(formatFileName.lastIndexOf("/")+1, formatFileName.lastIndexOf("."));
+
+		File directory=Paths.get(PROJECT_CLASS_PATH,directoryPath).toFile();
+
+		File[] listFiles = directory.listFiles((dir, name) -> {
+            if (name.equals(tempFileName+".class")||name.startsWith(tempFileName+"$")||name.endsWith(".xml")) {
+                return true;
+            }
+            return false;
+        });
+
+        copy(fileName, directoryPath, listFiles);
+    }
+
+    private static void copy(String fileName, String directoryPath, File[] listFiles) {
+        if (listFiles==null||listFiles.length==0) {
+            System.out.println("文件名《" + fileName + "》不存在！");
+        }else {
+            for (File sourceFile : listFiles) {
+                String outPutFileName = Paths.get(OUT_PUT_DIR,directoryPath,sourceFile.getName()).toString();
+                outPutFileName = outPutFileName.replaceAll("\\\\", "/");
+                String outPutDir = outPutFileName.substring(0,outPutFileName.lastIndexOf("/"));
+                File outDir = new File(outPutDir);
+                if (!outDir.exists()) {
+                    outDir.mkdirs();
+                }
+                File outFile = new File(outPutFileName);
+                fileChannelCopy(sourceFile, outFile);
+                System.out.println("处理文件<" + sourceFile.getAbsolutePath() + ">成功！");
+            }
+        }
+    }
+
+    public static void fileChannelCopy(File s, File t)
 	{
 		FileInputStream fi = null;
 		FileOutputStream fo = null;
