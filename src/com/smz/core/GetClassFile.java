@@ -79,12 +79,7 @@ public class GetClassFile
         String directoryPath=formatFileName.substring(0, formatFileName.lastIndexOf("/"));
         File directory=Paths.get(PROJECT_CLASS_PATH,directoryPath).toFile();
 
-        File[] listFiles = directory.listFiles((dir, name) -> {
-            if (name.equals(tempFileName+".class")||name.startsWith(tempFileName+"$")||name.endsWith(".xml")) {
-                return true;
-            }
-            return false;
-        });
+		File[] listFiles = filterFiles(tempFileName, directory, formatFileName);
 
         copy(fileName, directoryPath, listFiles);
 
@@ -105,17 +100,28 @@ public class GetClassFile
 
 		File directory=Paths.get(PROJECT_CLASS_PATH,directoryPath).toFile();
 
-		File[] listFiles = directory.listFiles((dir, name) -> {
-            if (name.equals(tempFileName+".class")||name.startsWith(tempFileName+"$")||name.endsWith(".xml")) {
-                return true;
-            }
-            return false;
-        });
+		File[] listFiles = filterFiles(tempFileName, directory, formatFileName);
 
         copy(fileName, directoryPath, listFiles);
     }
 
-    private static void copy(String fileName, String directoryPath, File[] listFiles) {
+	private static File[] filterFiles(String tempFileName, File directory, String formatFileName) {
+		String finalFormatFileName = formatFileName;
+		return directory.listFiles((dir, name) -> {
+			if (finalFormatFileName.indexOf(".java")!=-1) {
+				if (name.equals(tempFileName.concat(".class"))||name.startsWith(tempFileName.concat("$"))) {
+					return true;
+				}
+			}else {
+				if(name.equals(tempFileName.concat(".xml"))){
+					return true;
+				}
+			}
+            return false;
+        });
+	}
+
+	private static void copy(String fileName, String directoryPath, File[] listFiles) {
         if (listFiles==null||listFiles.length==0) {
             System.out.println("文件名《" + fileName + "》不存在！");
         }else {

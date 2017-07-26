@@ -1,1 +1,1 @@
-E:\work_space\pony\src\main\java\com\pony\biz\car\service\TBoxService.java
+E:\work_space\pony\src\main\java\com\pony\biz\regularBus\mapper\BusTicketMapper.xml
